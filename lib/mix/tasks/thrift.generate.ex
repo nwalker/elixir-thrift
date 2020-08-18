@@ -71,7 +71,6 @@ defmodule Mix.Tasks.Thrift.Generate do
       Keyword.new()
       |> Keyword.put(:include_paths, include_paths)
       |> Keyword.put(:namespace, namespace)
-
     unless Enum.empty?(files) do
       File.mkdir_p!(output_path)
       Enum.each(files, &generate!(&1, output_path, parser_opts, opts))

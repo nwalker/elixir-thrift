@@ -199,7 +199,7 @@ defmodule Thrift.Generator do
 
   defp generate_services(schema) do
     for {_, service} <- schema.services do
-      Generator.Service.generate(schema, service)
+        Generator.Service.generate(schema, service)
     end
   end
 

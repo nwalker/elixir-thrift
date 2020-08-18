@@ -12,6 +12,8 @@ defmodule Thrift.Generator.Service do
   @dialyzer [{:nowarn_function, generate: 2}, {:nowarn_function, generate_response_struct: 2}]
 
   def generate(schema, service) do
+    # IO.inspect(schema, label: "SCHEMA")
+    # IO.inspect(service, label: "SERVICE")
     file_group = schema.file_group
     dest_module = FileGroup.dest_module(file_group, service)
 
@@ -25,6 +27,7 @@ defmodule Thrift.Generator.Service do
 
     framed_client = Generator.Binary.Framed.Client.generate(service)
     framed_server = Generator.Binary.Framed.Server.generate(dest_module, service, file_group)
+    http_server = Generator.Binary.Framed.Server.HTTP.generate(dest_module, service, file_group)
 
     service_module =
       quote do
@@ -36,6 +39,8 @@ defmodule Thrift.Generator.Service do
           unquote(framed_client)
 
           unquote(framed_server)
+
+          unquote(http_server)
         end
       end
 
