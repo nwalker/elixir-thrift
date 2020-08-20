@@ -1,18 +1,18 @@
 defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
   alias Thrift.Generator.{
-    Service,
+    Service
   }
-  def generate(service_module, service, file_group) do
 
+  def generate(service_module, service, file_group) do
     thrift_root = generate_thrift_root(service_module, service)
 
     quote do
       defmodule Binary.Framed.Server.HTTP do
-
         unquote(thrift_root)
 
         def get_child_spec(module_handler) do
-          {Plug.Cowboy, scheme: :http, plug: {__MODULE__.Router, [module_handler]}, options: [port: 4001]}
+          {Plug.Cowboy,
+           scheme: :http, plug: {__MODULE__.Router, [module_handler]}, options: [port: 4001]}
         end
       end
     end
@@ -25,8 +25,8 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
 
         alias Thrift.Protocol
 
-        plug :match
-        plug :dispatch, builder_opts()
+        plug(:match)
+        plug(:dispatch, builder_opts())
 
         # def init([module_handler]) do
         #   module_handler
@@ -52,6 +52,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
         end
 
         def handle_thrift_message(conn, {:call, sequence_id, name, args_binary}, opts) do
+          IO.inspect(args_binary, label: "args binary")
           IO.inspect(name, label: "FORWARD")
           IO.inspect(opts, label: "FORWARD opts")
           conn = %{conn | body_params: args_binary, path_info: [name]}
@@ -59,7 +60,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
         end
 
         unquote(generate_thrift_handlers(service_module, service))
-
       end
     end
   end
@@ -69,8 +69,8 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
       defmodule Handlers do
         use Plug.Router
 
-        plug :match
-        plug :dispatch
+        plug(:match)
+        plug(:dispatch, builder_opts())
 
         def init([opts]) do
           opts
@@ -94,27 +94,48 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
       func_name
       |> Macro.underscore()
       |> String.to_atom()
+
     handler_args = Enum.map(function_ast.params, &Macro.var(&1.name, nil))
     args_module = Module.concat(service_module, Service.module_name(function_ast, :args))
+    response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
 
+    # |> IO.inspect(label: "body"),
     struct_matches =
       Enum.map(function_ast.params, fn param ->
         {param.name, Macro.var(param.name, nil)}
       end)
+
     quote do
       post unquote(func_path) do
-        with(
-          {:ok, body, conn} <- Plug.Conn.read_body(conn),
-          {
-            %unquote(args_module){unquote_splicing(struct_matches)},  # %Service.AddArgs{left: left, right: right}
-            rest
-          } <- unquote(args_module).BinaryProtocol.deserialize(body)
-        ) do
-          
-        end
-        send_resp(conn, 200, unquote(fname) <> "GOTCHA" <> inspect(opts))
+        [handler_module] = opts
+        IO.inspect(handler_module, label: "End of opts")
+        body = conn.body_params
+
+        result =
+          with(
+            # {:ok, body, conn} <- Plug.Conn.read_body(conn),
+            IO.inspect(body, label: "body"),
+            kk = Protocol.Binary.deserialize(:message_begin, body) |> IO.inspect(label: "msgbgn"),
+            {
+              # %Service.AddArgs{left: left, right: right}
+              %unquote(args_module){unquote_splicing(struct_matches)},
+              rest
+            } <-
+              unquote(args_module).BinaryProtocol.deserialize(body) |> IO.inspect(label: "deser")
+          ) do
+            apply(
+              handler_module,
+              unquote(handle),
+              IO.inspect([unquote_splicing(handler_args)], label: "Args")
+            )
+          end
+
+        IO.inspect(result)
+        response = %unquote(response_module){success: result}
+        IO.inspect(response)
+        encoded_result = unquote(response_module).BinaryProtocol.serialize(response)
+        send_resp(conn, 200, encoded_result)
       end
     end
-
   end
 end
