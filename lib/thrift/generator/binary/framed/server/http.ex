@@ -47,6 +47,12 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
           end
         end
 
+        post "/thrift/:method" do
+          {:ok, payload, conn} = Plug.Conn.read_body(conn)
+          conn = %{conn | body_params: payload}
+          Plug.forward(conn, [method], __MODULE__.Handlers, opts)
+        end
+
         match _ do
           send_resp(conn, 404, "not found")
         end
@@ -113,9 +119,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
 
         result =
           with(
-            # {:ok, body, conn} <- Plug.Conn.read_body(conn),
-            IO.inspect(body, label: "body"),
-            kk = Protocol.Binary.deserialize(:message_begin, body) |> IO.inspect(label: "msgbgn"),
             {
               # %Service.AddArgs{left: left, right: right}
               %unquote(args_module){unquote_splicing(struct_matches)},
@@ -129,6 +132,10 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
               IO.inspect([unquote_splicing(handler_args)], label: "Args")
             )
           end
+
+        case result do
+          {:ok, result} -> nil
+        end
 
         IO.inspect(result)
         response = %unquote(response_module){success: result}
