@@ -2,9 +2,10 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
   alias Thrift.Generator.{
     Service
   }
+  alias Thrift.Parser.FileGroup
 
   def generate(service_module, service, file_group) do
-    thrift_root = generate_thrift_root(service_module, service)
+    thrift_root = generate_thrift_root(service_module, service, file_group)
 
     quote do
       defmodule Binary.Framed.Server.HTTP do
@@ -18,7 +19,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     end
   end
 
-  def generate_thrift_root(service_module, service) do
+  def generate_thrift_root(service_module, service, file_group) do
     quote do
       defmodule Router do
         use Plug.Router
@@ -65,12 +66,12 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
           Plug.forward(conn, [name], __MODULE__.Handlers, opts)
         end
 
-        unquote(generate_thrift_handlers(service_module, service))
+        unquote(generate_thrift_handlers(service_module, service, file_group))
       end
     end
   end
 
-  def generate_thrift_handlers(service_module, service) do
+  def generate_thrift_handlers(service_module, service, file_group) do
     quote do
       defmodule Handlers do
         use Plug.Router
@@ -82,7 +83,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
           opts
         end
 
-        unquote_splicing(Enum.map(service.functions, &generate_thrift_handle(service_module, &1)))
+        unquote_splicing(Enum.map(service.functions, &generate_thrift_handle(service_module, file_group, &1)))
 
         match _ do
           IO.inspect(conn, label: "Not matched")
@@ -92,7 +93,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     end
   end
 
-  def generate_thrift_handle(service_module, {fname, function_ast}) do
+  def generate_thrift_handle(service_module, file_group, {fname, function_ast}) do
     func_name = Atom.to_string(fname)
     func_path = "/" <> func_name
 
@@ -105,7 +106,38 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     args_module = Module.concat(service_module, Service.module_name(function_ast, :args))
     response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
 
-    # |> IO.inspect(label: "body"),
+    # exception_module_root =
+    #   service_module  # Calculator.Generated.Service
+    #   |> Module.split()
+    #   |> Enum.take_while(&(&1 != 'Service'))
+
+
+    # DANGER
+    # expanded into (clasue -> block) which broke with-else statement
+    # need to fix on Elixir side
+    #
+    # generate_exception_clause =
+    #   fn exception_ast ->
+    #     exception_type_ast = FileGroup.resolve(file_group, exception_ast) |> IO.inspect(label: "RESOLVED")
+    #     exception_module = FileGroup.dest_module(file_group, exception_type_ast.type) |> IO.inspect(label: "module")
+    #     # exception_var = Macro.var(exception_ast.name, nil)
+    #     # field_setter = quote do: {unquote(exception_ast.name), unquote(exception_var)}
+    #     field_setter = quote do: {unquote(exception_ast.name), exc}
+    #     [quote do
+    #       {:exception, %unquote(exception_module){} = exc} ->
+    #         response = %unquote(response_module){unquote(field_setter)}
+    #         unquote(response_module).BinaryProtocol.serialize(response)
+    #     end]
+    # end
+    #
+    # exceptions_clauses = Enum.flat_map(
+    #   function_ast.exceptions,
+    #   generate_exception_clause
+    # )
+    #
+    # END OF DANGER
+    # # # # # #
+
     struct_matches =
       Enum.map(function_ast.params, fn param ->
         {param.name, Macro.var(param.name, nil)}
@@ -117,32 +149,45 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
         IO.inspect(handler_module, label: "End of opts")
         body = conn.body_params
 
-        result =
+        encoded_response =
           with(
             {
               # %Service.AddArgs{left: left, right: right}
               %unquote(args_module){unquote_splicing(struct_matches)},
               rest
             } <-
-              unquote(args_module).BinaryProtocol.deserialize(body) |> IO.inspect(label: "deser")
-          ) do
-            apply(
+              unquote(args_module).BinaryProtocol.deserialize(body) |> IO.inspect(label: "deser"),
+            {:ok, result} <- apply(
               handler_module,
               unquote(handle),
               IO.inspect([unquote_splicing(handler_args)], label: "Args")
-            )
+            ),
+            response = %unquote(response_module){success: result}
+          ) do
+            unquote(response_module).BinaryProtocol.serialize(response)
+          else
+            :error -> :error
+            {:exception, exc} -> handle_exc(exc, unquote(response_module))
+            # unquote_splicing(exceptions_clauses)
           end
 
-        case result do
-          {:ok, result} -> nil
+        case encoded_response do
+          :error -> send_resp(conn, 500, "LOL")
+          encoded_response -> send_resp(conn, 200, encoded_response)
         end
 
-        IO.inspect(result)
-        response = %unquote(response_module){success: result}
-        IO.inspect(response)
-        encoded_result = unquote(response_module).BinaryProtocol.serialize(response)
-        send_resp(conn, 200, encoded_result)
       end
     end
+  end
+
+  def generate_exception_handlers(service_ast, file_group) do
+
+    quote do
+      defp handle_exc(exception, response_module) do
+        response = %unquote(response_module){unquote(field_setter)}
+        unquote(response_module).BinaryProtocol.serialize(response)
+      end
+    end
+
   end
 end
