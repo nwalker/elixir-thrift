@@ -71,7 +71,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     end
   end
 
-  def generate_thrift_handlers(service_module, service, file_group) do
+  def generate_thrift_handlers(service_module, service_ast, file_group) do
     quote do
       defmodule Handlers do
         use Plug.Router
@@ -83,12 +83,15 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
           opts
         end
 
-        unquote_splicing(Enum.map(service.functions, &generate_thrift_handle(service_module, file_group, &1)))
+        unquote_splicing(Enum.map(service_ast.functions, &generate_thrift_handle(service_module, file_group, &1)))
 
         match _ do
           IO.inspect(conn, label: "Not matched")
           send_resp(conn, 404, "Ohh")
         end
+
+        unquote_splicing(generate_exception_handlers(service_ast, service_module, file_group))
+
       end
     end
   end
@@ -180,10 +183,22 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     end
   end
 
-  def generate_exception_handlers(service_ast, file_group) do
+  def generate_exception_handlers(service_ast, service_module, file_group) do
+    for {_fname, function_ast} <- service_ast.functions, exception_ast <- function_ast.exceptions do
+      response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
+      generate_exception_handler(response_module, exception_ast, file_group)
+    end
+  end
+
+  def generate_exception_handler(response_module, exception_ast, file_group) do
+    exception_type_ast = FileGroup.resolve(file_group, exception_ast) |> IO.inspect(label: "RESOLVED")
+    exception_module = FileGroup.dest_module(file_group, exception_type_ast.type) |> IO.inspect(label: "module")
+    # exception_var = Macro.var(exception_ast.name, nil)
+    # field_setter = quote do: {unquote(exception_ast.name), unquote(exception_var)}
+    field_setter = quote do: {unquote(exception_ast.name), exc}
 
     quote do
-      defp handle_exc(exception, response_module) do
+      defp handle_exc(%unquote(exception_module){} = exc, unquote(response_module)) do
         response = %unquote(response_module){unquote(field_setter)}
         unquote(response_module).BinaryProtocol.serialize(response)
       end
