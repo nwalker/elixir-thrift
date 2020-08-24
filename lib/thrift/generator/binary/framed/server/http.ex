@@ -29,21 +29,15 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
         plug(:match)
         plug(:dispatch, builder_opts())
 
-        # def init([module_handler]) do
-        #   module_handler
-        # end
-
         def init(opts) do
-          IO.inspect(opts, label: "INIT OPTS")
+          opts
         end
 
         post "/thrift" do
-          # send_resp(conn, 200, "keke")
           with(
             {:ok, payload, conn} <- Plug.Conn.read_body(conn),
-            {:ok, parsed} <- Protocol.Binary.deserialize(:message_begin, payload) |> IO.inspect()
+            {:ok, parsed} <- Protocol.Binary.deserialize(:message_begin, payload)
           ) do
-            IO.inspect(opts, label: "THRIFT OPTS")
             handle_thrift_message(conn, parsed, opts)
           end
         end
@@ -59,9 +53,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
         end
 
         def handle_thrift_message(conn, {:call, sequence_id, name, args_binary}, opts) do
-          IO.inspect(args_binary, label: "args binary")
-          IO.inspect(name, label: "FORWARD")
-          IO.inspect(opts, label: "FORWARD opts")
           conn = %{conn | body_params: args_binary, path_info: [name]}
           Plug.forward(conn, [name], __MODULE__.Handlers, opts)
         end
@@ -86,7 +77,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
         unquote_splicing(Enum.map(service_ast.functions, &generate_thrift_handle(service_module, file_group, &1)))
 
         match _ do
-          IO.inspect(conn, label: "Not matched")
           send_resp(conn, 404, "Ohh")
         end
 
@@ -96,7 +86,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     end
   end
 
-  def generate_thrift_handle(service_module, file_group, {fname, function_ast}) do
+  def generate_thrift_handle(service_module, _file_group, {fname, function_ast}) do
     func_name = Atom.to_string(fname)
     func_path = "/" <> func_name
 
@@ -108,12 +98,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     handler_args = Enum.map(function_ast.params, &Macro.var(&1.name, nil))
     args_module = Module.concat(service_module, Service.module_name(function_ast, :args))
     response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
-
-    # exception_module_root =
-    #   service_module  # Calculator.Generated.Service
-    #   |> Module.split()
-    #   |> Enum.take_while(&(&1 != 'Service'))
-
 
     # DANGER
     # expanded into (clasue -> block) which broke with-else statement
@@ -149,7 +133,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     quote do
       post unquote(func_path) do
         [handler_module] = opts
-        IO.inspect(handler_module, label: "End of opts")
         body = conn.body_params
 
         encoded_response =
@@ -157,13 +140,13 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
             {
               # %Service.AddArgs{left: left, right: right}
               %unquote(args_module){unquote_splicing(struct_matches)},
-              rest
+              _rest
             } <-
-              unquote(args_module).BinaryProtocol.deserialize(body) |> IO.inspect(label: "deser"),
+              unquote(args_module).BinaryProtocol.deserialize(body),
             {:ok, result} <- apply(
               handler_module,
               unquote(handle),
-              IO.inspect([unquote_splicing(handler_args)], label: "Args")
+              [unquote_splicing(handler_args)]
             ),
             response = %unquote(response_module){success: result}
           ) do
@@ -191,8 +174,8 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
   end
 
   def generate_exception_handler(response_module, exception_ast, file_group) do
-    exception_type_ast = FileGroup.resolve(file_group, exception_ast) |> IO.inspect(label: "RESOLVED")
-    exception_module = FileGroup.dest_module(file_group, exception_type_ast.type) |> IO.inspect(label: "module")
+    exception_type_ast = FileGroup.resolve(file_group, exception_ast)
+    exception_module = FileGroup.dest_module(file_group, exception_type_ast.type)
     field_setter = quote do: {unquote(exception_ast.name), exc}
 
     quote do
