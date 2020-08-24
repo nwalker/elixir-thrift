@@ -42,6 +42,14 @@ defmodule Thrift.Generator.Behaviour do
     callback_name = Utils.underscore(function.name)
 
     return_type = typespec(function.return_type, file_group)
+    return_type = ok_type(return_type)
+
+    exceptions = Enum.map(
+      function.exceptions,
+      &(&1.type |> typespec(file_group) |> exception_type())
+    )
+
+    return_type = Enum.reduce([return_type | exceptions], &unite/2)
 
     params =
       function.params
@@ -131,6 +139,24 @@ defmodule Thrift.Generator.Behaviour do
 
     quote do
       any
+    end
+  end
+
+  defp ok_type(typespec_) do
+    quote do
+      {:ok, unquote(typespec_)}
+    end
+  end
+
+  defp exception_type(typespec_) do
+    quote do
+      {:exception, unquote(typespec_)}
+    end
+  end
+
+  defp unite(type, acc) do
+    quote do
+      unquote(acc) | unquote(type)
     end
   end
 end

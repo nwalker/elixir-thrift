@@ -193,8 +193,6 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
   def generate_exception_handler(response_module, exception_ast, file_group) do
     exception_type_ast = FileGroup.resolve(file_group, exception_ast) |> IO.inspect(label: "RESOLVED")
     exception_module = FileGroup.dest_module(file_group, exception_type_ast.type) |> IO.inspect(label: "module")
-    # exception_var = Macro.var(exception_ast.name, nil)
-    # field_setter = quote do: {unquote(exception_ast.name), unquote(exception_var)}
     field_setter = quote do: {unquote(exception_ast.name), exc}
 
     quote do
