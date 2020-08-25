@@ -167,10 +167,17 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
   end
 
   def generate_exception_handlers(service_ast, service_module, file_group) do
+
+    unknown_exception_handler = quote do
+      defp handle_exc(_, _) do
+        :error
+      end
+    end
+
     for {_fname, function_ast} <- service_ast.functions, exception_ast <- function_ast.exceptions do
       response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
       generate_exception_handler(response_module, exception_ast, file_group)
-    end
+    end ++ [unknown_exception_handler]
   end
 
   def generate_exception_handler(response_module, exception_ast, file_group) do

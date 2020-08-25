@@ -67,7 +67,8 @@ defmodule Thrift.Generator.Behaviour do
     end
   end
 
-  defp typespec(:void, _), do: quote(do: no_return())
+  # defp typespec(:void, _), do: quote(do: no_return())
+  defp typespec(:void, _), do: quote(do: nil)
   defp typespec(:bool, _), do: quote(do: boolean())
   defp typespec(:string, _), do: quote(do: String.t())
   defp typespec(:binary, _), do: quote(do: binary)
