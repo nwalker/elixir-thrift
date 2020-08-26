@@ -3,6 +3,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     Service
   }
   alias Thrift.Parser.FileGroup
+  alias Thrift.Protocol.Binary
 
   def generate(service_module, service, file_group) do
     thrift_root = generate_thrift_root(service_module, service, file_group)
@@ -99,6 +100,8 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     args_module = Module.concat(service_module, Service.module_name(function_ast, :args))
     response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
 
+    response_header = Binary.serialize(:message_begin, {:reply, 0, func_name})
+
     # DANGER
     # expanded into (clasue -> block) which broke with-else statement
     # need to fix on Elixir side
@@ -159,7 +162,9 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
 
         case encoded_response do
           :error -> send_resp(conn, 500, "LOL")
-          encoded_response -> send_resp(conn, 200, encoded_response)
+          encoded_response ->
+            encoded_response = IO.iodata_to_binary([unquote(response_header) | encoded_response])
+            send_resp(conn, 200, encoded_response)
         end
 
       end
