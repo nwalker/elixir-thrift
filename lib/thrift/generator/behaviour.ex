@@ -102,7 +102,8 @@ defmodule Thrift.Generator.Behaviour do
     dest_module = FileGroup.dest_module(file_group, name)
 
     quote do
-      %unquote(dest_module){}
+      # %unquote(dest_module){}
+      unquote(dest_module).t()
     end
   end
 
@@ -110,7 +111,8 @@ defmodule Thrift.Generator.Behaviour do
     dest_module = FileGroup.dest_module(file_group, name)
 
     quote do
-      %unquote(dest_module){}
+      # %unquote(dest_module){}
+      unquote(dest_module).t()
     end
   end
 
