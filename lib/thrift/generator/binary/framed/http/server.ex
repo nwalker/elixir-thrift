@@ -1,4 +1,4 @@
-defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
+defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
   alias Thrift.Generator.{
     Service
   }
@@ -9,7 +9,7 @@ defmodule Thrift.Generator.Binary.Framed.Server.HTTP do
     thrift_root = generate_thrift_root(service_module, service, file_group)
 
     quote do
-      defmodule Binary.Framed.Server.HTTP do
+      defmodule Binary.Framed.HTTP.Server do
         unquote(thrift_root)
 
         def get_child_spec(module_handler) do

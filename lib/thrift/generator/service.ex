@@ -27,7 +27,8 @@ defmodule Thrift.Generator.Service do
 
     framed_client = Generator.Binary.Framed.Client.generate(service)
     framed_server = Generator.Binary.Framed.Server.generate(dest_module, service, file_group)
-    http_server = Generator.Binary.Framed.Server.HTTP.generate(dest_module, service, file_group)
+    http_server = Generator.Binary.Framed.HTTP.Server.generate(dest_module, service, file_group)
+    http_client = Generator.Binary.Framed.HTTP.Client.generate(dest_module, service, file_group)
 
     service_module =
       quote do
@@ -39,6 +40,8 @@ defmodule Thrift.Generator.Service do
           unquote(framed_client)
 
           unquote(framed_server)
+
+          unquote(http_client)
 
           unquote(http_server)
         end
