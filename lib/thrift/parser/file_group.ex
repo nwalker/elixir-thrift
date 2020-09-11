@@ -185,7 +185,7 @@ defmodule Thrift.Parser.FileGroup do
     # (ignoring case), use that instead to avoid generating two modules with
     # the same spellings but different cases.
     schema = file_group.schemas[base]
-
+    IO.puts("file_group flatten")
     symbols =
       [
         Enum.map(schema.enums, fn {_, s} -> s.name end),

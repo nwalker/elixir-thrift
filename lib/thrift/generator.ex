@@ -10,7 +10,8 @@ defmodule Thrift.Generator do
     Generator,
     Generator.ConstantGenerator,
     Generator.EnumGenerator,
-    Generator.StructGenerator
+    Generator.StructGenerator,
+    Generator.TestDataGenerator
   }
 
   alias Thrift.Parser.FileGroup
@@ -24,7 +25,9 @@ defmodule Thrift.Generator do
       schema
       |> Map.put(:file_group, file_group)
       |> generate_schema
+      |> hd()
       |> Enum.map(fn {name, _} -> target_path(name) end)
+      # |> IO.inspect(label: "target paths")
     end)
   end
 
@@ -38,12 +41,13 @@ defmodule Thrift.Generator do
     |> Kernel.<>(".ex")
   end
 
-  def generate!(%FileGroup{} = file_group, output_dir) do
+  def generate!(%FileGroup{} = file_group, [_output_dir, _output_test_data] = output) do
+    IO.inspect(file_group.schemas, label: "fg")
     Enum.flat_map(file_group.schemas, fn {_, schema} ->
       schema
       |> Map.put(:file_group, file_group)
       |> generate_schema
-      |> write_schema_to_file(output_dir)
+      |> write_schema_to_file(output)
     end)
   end
 
@@ -62,25 +66,36 @@ defmodule Thrift.Generator do
     current_module_file_group = FileGroup.set_current_module(schema.file_group, schema.module)
     schema = %Schema{schema | file_group: current_module_file_group}
 
-    List.flatten([
-      generate_enum_modules(schema),
-      generate_const_modules(schema),
-      generate_struct_modules(schema),
-      generate_union_modules(schema),
-      generate_exception_modules(schema),
-      generate_services(schema),
-      generate_behaviours(schema)
-    ])
+    modules =
+      List.flatten([
+        generate_enum_modules(schema),
+        generate_const_modules(schema),
+        generate_struct_modules(schema),
+        generate_union_modules(schema),
+        generate_exception_modules(schema),
+        generate_services(schema),
+        generate_behaviours(schema)
+      ])
+    test_modules = generate_test_data_modules(schema)
+    [modules, test_modules]
   end
 
-  defp write_schema_to_file(generated_modules, output_dir) do
-    generated_modules
+  defp write_schema_to_file(module_groups, outputs) do
+    module_groups
+    |> Enum.zip(outputs)
+    |> IO.inspect(label: "zip res")
+    |> Enum.map(&perform_write/1)
+    |> IO.inspect(label: "after")
+  end
+
+  defp perform_write({modules, output}) do
+    modules
     |> resolve_name_collisions
     |> Enum.map(fn {name, quoted} ->
       filename = target_path(name)
       source = Macro.to_string(quoted)
 
-      path = Path.join(output_dir, filename)
+      path = Path.join(output, filename)
 
       path
       |> Path.dirname()
@@ -139,6 +154,35 @@ defmodule Thrift.Generator do
 
   defp combine_module_defs(name, meta, ast1, ast2) do
     {:defmodule, meta, [name, [do: {:__block__, [], ast1 ++ ast2}]]}
+  end
+
+  defp generate_test_data_modules(schema) do
+    endless_label = fn label -> Stream.repeatedly(fn -> label end) end
+    zip_with_label = fn label, stream -> Stream.zip(endless_label.(label), stream) end
+
+    structs_stream = zip_with_label.(:struct, schema.structs)
+    exceptions_stream = zip_with_label.(:exception, schema.exceptions)
+    unions_stream = zip_with_label.(:union, schema.unions)
+    enums_stream = zip_with_label.(:enum, schema.enums)
+
+    all_streams = Stream.concat([
+      structs_stream,
+      exceptions_stream,
+      unions_stream,
+      enums_stream
+    ])
+
+    for {label, {_, struct}} <- all_streams do
+      full_name = FileGroup.dest_module(schema.file_group, struct)
+      full_test_data_name = TestDataGenerator.test_data_module_from_data_module(full_name)
+      {full_test_data_name, TestDataGenerator.generate(label, schema, full_name, struct)}
+    end
+
+    # for {_, struct} <- schema.structs do
+    #   full_name = FileGroup.dest_module(schema.file_group, struct)
+    #   full_test_data_name = TestDataGenerator.test_data_module_from_data_module(full_name)
+    #   {full_test_data_name, TestDataGenerator.generate(:struct, schema, full_name, struct)}
+    # end
   end
 
   defp generate_enum_modules(schema) do

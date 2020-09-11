@@ -46,7 +46,8 @@ defmodule Mix.Tasks.Compile.Thrift do
         # other settings...
         thrift: [
           files: Path.wildcard("thrift/**/*.thrift"),
-          output_path: "lib/generated"
+          output_path: "lib/generated",
+          output_test_data: "test/test_data/"
         ]
       ]
     end
@@ -63,6 +64,12 @@ defmodule Mix.Tasks.Compile.Thrift do
     config = Keyword.get(Mix.Project.config(), :thrift, [])
     input_files = Keyword.get(config, :files, [])
     output_path = Keyword.get(config, :output_path, "lib")
+    output_test_data = Keyword.get(
+      config,
+      :output_test_data,
+      "test/test_data/"
+    ) |> IO.inspect(label: "output test data")
+
 
     parser_opts =
       config
@@ -77,8 +84,8 @@ defmodule Mix.Tasks.Compile.Thrift do
 
         {groups, [] = _diagnostics} ->
           groups
-          |> extract_targets(output_path, opts[:force])
-          |> generate(manifest(), output_path, opts)
+          |> extract_targets({output_path, output_test_data}, opts[:force])
+          |> generate(manifest(), [output_path, output_test_data], opts)
 
         {_groups, diagnostics} ->
           {:error, diagnostics}
@@ -117,14 +124,16 @@ defmodule Mix.Tasks.Compile.Thrift do
 
   @typep mappings :: [{:stale, FileGroup.t(), [Path.t()]} | {:ok, FileGroup.t(), [Path.t()]}]
 
-  @spec extract_targets([FileGroup.t()], Path.t(), boolean) :: mappings
-  defp extract_targets(groups, output_path, force) when is_list(groups) do
+  @spec extract_targets([FileGroup.t()], {Path.t(), Path.t()}, boolean) :: mappings
+  defp extract_targets(groups, {output_path, _}, force) when is_list(groups) do
     for %FileGroup{initial_file: file} = group <- groups do
+      # IO.puts("ololo")
       targets =
         group
+        # |> IO.inspect(label: "group for extract")
         |> Thrift.Generator.targets()
         |> Enum.map(&Path.join(output_path, &1))
-
+      # IO.puts("keke")
       if force || Mix.Utils.stale?([file], targets) do
         {:stale, group, targets}
       else
@@ -135,12 +144,12 @@ defmodule Mix.Tasks.Compile.Thrift do
 
   @spec generate(mappings, Path.t(), Path.t(), OptionParser.parsed()) ::
           {:ok | :noop | :error, [Diagnostic.t()]}
-  defp generate(mappings, manifest, output_path, opts) do
+  defp generate(mappings, manifest, [output_path, output_test_data] = output, opts) do
     timestamp = :calendar.universal_time()
     verbose = opts[:verbose]
 
     # Load the list of previously-generated files.
-    previous = read_manifest(manifest)
+    previous = read_manifest(manifest |> IO.inspect(label: "manifest")) |> IO.inspect(label: "previous")
 
     # Determine which of our current targets are in need of (re)generation.
     stale = for {:stale, group, targets} <- mappings, do: {group, targets}
@@ -157,15 +166,22 @@ defmodule Mix.Tasks.Compile.Thrift do
     else
       # Ensure we have an output directory and remove old target files.
       File.mkdir_p!(output_path)
+      File.mkdir_p!(output_test_data)
+
       Enum.each(removed, &File.rm/1)
 
       unless Enum.empty?(stale) do
         Mix.Utils.compiling_n(length(stale), :thrift)
 
+        # IO.inspect(stale, lable: "stale")
+
         Enum.each(stale, fn {group, _targets} ->
-          Thrift.Generator.generate!(group, output_path)
+          # IO.inspect(output, label: "output")
+          Thrift.Generator.generate!(group, output)
+          IO.puts("after gen")
           verbose && Mix.shell().info("Compiled #{group.initial_file}")
         end)
+
       end
 
       # Update and rewrite the manifest.
