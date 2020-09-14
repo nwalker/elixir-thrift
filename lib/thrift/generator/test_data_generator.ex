@@ -1,5 +1,6 @@
 defmodule Thrift.Generator.TestDataGenerator do
   alias __MODULE__, as: TestDataGenerator
+
   alias Thrift.AST.{
     Exception,
     Struct,
@@ -7,6 +8,7 @@ defmodule Thrift.Generator.TestDataGenerator do
     TypeRef,
     Union
   }
+
   alias Thrift.Parser.FileGroup
 
   def generate(label, schema, full_name, struct) do
@@ -16,7 +18,6 @@ defmodule Thrift.Generator.TestDataGenerator do
       _ -> TestDataGenerator.Struct.generate(schema, full_name, struct)
     end
   end
-
 
   def get_generator(:bool, _) do
     quote do
@@ -69,6 +70,33 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
+  def get_generator({:list, t}, file_group) do
+    subgen = get_generator(t, file_group)
+
+    quote do
+      list(unquote(subgen))
+    end
+  end
+
+  def get_generator({:set, t}, file_group) do
+    subgen = get_generator({:list, t}, file_group)
+
+    quote do
+      let set <- unquote(subgen) do
+        MapSet.new(set)
+      end
+    end
+  end
+
+  def get_generator({:map, {k, v}}, file_group) do
+    key_subgen = get_generator(k, file_group)
+    val_subgen = get_generator(v, file_group)
+
+    quote do
+      map(unquote(key_subgen), unquote(val_subgen))
+    end
+  end
+
   def get_generator(%TypeRef{} = ref, file_group) do
     file_group
     |> FileGroup.resolve(ref)
@@ -106,11 +134,9 @@ defmodule Thrift.Generator.TestDataGenerator do
   end
 
   def test_data_module_from_data_module(data_module) do
-
     data_module
     |> Module.split()
     |> List.insert_at(0, "TestData")
     |> Module.concat()
   end
-
 end
