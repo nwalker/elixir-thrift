@@ -24,8 +24,9 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
     quote do
       defmodule unquote(test_data_module_name) do
         use PropCheck
-
-        unquote(gen)
+        def get_generator() do
+          unquote(gen)
+        end
 
       end
     end
