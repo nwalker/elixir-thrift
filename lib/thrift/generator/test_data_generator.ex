@@ -69,6 +69,41 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
+  def get_generator({:list, t}, file_group) do
+    subgen = get_generator(t, file_group)
+    quote do
+      list(unquote(subgen))
+    end
+  end
+
+  def get_generator({:set, t}, file_group) do
+    subgen = get_generator({:list, t}, file_group)
+    quote do
+      let x <- unquote(subgen) do
+        MapSet.new(x)
+      end
+    end
+  end
+
+  def get_generator({:map, {k, v}}, file_group) do
+    key_subgen = get_generator(k, file_group)
+    val_subgen = get_generator(v, file_group)
+
+    quote do
+      map(unquote(key_subgen), unquote(val_subgen))
+    end
+  end
+
+  def get_generator(%TEnum{name: name}, file_group) do
+    dest_module =
+      FileGroup.dest_module(file_group, name)
+      |> test_data_module_from_data_module
+
+    quote do
+      unquote(dest_module).get_generator()
+    end
+  end
+
   def get_generator(%TypeRef{} = ref, file_group) do
     file_group
     |> FileGroup.resolve(ref)
