@@ -27,6 +27,7 @@ defmodule Thrift.Generator do
       |> generate_schema
       |> hd()
       |> Enum.map(fn {name, _} -> target_path(name) end)
+
       # |> IO.inspect(label: "target paths")
     end)
   end
@@ -43,6 +44,7 @@ defmodule Thrift.Generator do
 
   def generate!(%FileGroup{} = file_group, [_output_dir, _output_test_data] = output) do
     IO.inspect(file_group.schemas, label: "fg")
+
     Enum.flat_map(file_group.schemas, fn {_, schema} ->
       schema
       |> Map.put(:file_group, file_group)
@@ -65,6 +67,7 @@ defmodule Thrift.Generator do
   def generate_schema(schema) do
     current_module_file_group = FileGroup.set_current_module(schema.file_group, schema.module)
     schema = %Schema{schema | file_group: current_module_file_group}
+    IO.inspect(schema, label: "schema")
 
     modules =
       List.flatten([
@@ -76,6 +79,7 @@ defmodule Thrift.Generator do
         generate_services(schema),
         generate_behaviours(schema)
       ])
+
     test_modules = generate_test_data_modules(schema)
     [modules, test_modules]
   end
@@ -83,9 +87,10 @@ defmodule Thrift.Generator do
   defp write_schema_to_file(module_groups, outputs) do
     module_groups
     |> Enum.zip(outputs)
-    |> IO.inspect(label: "zip res")
+    # |> IO.inspect(label: "zip res")
     |> Enum.map(&perform_write/1)
-    |> IO.inspect(label: "after")
+
+    # |> IO.inspect(label: "after")
   end
 
   defp perform_write({modules, output}) do
@@ -165,12 +170,13 @@ defmodule Thrift.Generator do
     unions_stream = zip_with_label.(:union, schema.unions)
     enums_stream = zip_with_label.(:enum, schema.enums)
 
-    all_streams = Stream.concat([
-      structs_stream,
-      exceptions_stream,
-      unions_stream,
-      enums_stream
-    ])
+    all_streams =
+      Stream.concat([
+        structs_stream,
+        exceptions_stream,
+        unions_stream,
+        enums_stream
+      ])
 
     for {label, {_, struct}} <- all_streams do
       full_name = FileGroup.dest_module(schema.file_group, struct)
@@ -243,7 +249,7 @@ defmodule Thrift.Generator do
 
   defp generate_services(schema) do
     for {_, service} <- schema.services do
-        Generator.Service.generate(schema, service)
+      Generator.Service.generate(schema, service)
     end
   end
 

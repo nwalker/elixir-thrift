@@ -62,7 +62,7 @@ defmodule Mix.Tasks.Thrift.Generate do
 
     config = Keyword.get(Mix.Project.config(), :thrift, [])
     output_path = opts[:out] || Keyword.get(config, :output_path, "lib")
-    output_test_data = opts[:out_test] || Keyword.get(config, :output_test_data, "lib") |> IO.inspect(label: "test_data")
+    output_test_data = opts[:out_test] || Keyword.get(config, :output_test_data, "lib") #|> IO.inspect(label: "test_data")
 
     namespace = opts[:namespace] || Keyword.get(config, :namespace)
 

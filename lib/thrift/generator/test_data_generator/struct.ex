@@ -15,15 +15,17 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
           end
         draw_fields ->
           quote do
+
             let [unquote_splicing(draw_fields)] do
               %unquote(name){unquote_splicing(struct_fields)}
             end
           end
-      end
+        end
 
     quote do
       defmodule unquote(test_data_module_name) do
         use PropCheck
+
         def get_generator() do
           unquote(gen)
         end

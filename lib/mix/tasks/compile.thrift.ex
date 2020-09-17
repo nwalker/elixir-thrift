@@ -68,7 +68,7 @@ defmodule Mix.Tasks.Compile.Thrift do
       config,
       :output_test_data,
       "test/test_data/"
-    ) |> IO.inspect(label: "output test data")
+    )# |> IO.inspect(label: "output test data")
 
 
     parser_opts =

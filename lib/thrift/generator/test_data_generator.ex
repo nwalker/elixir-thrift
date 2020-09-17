@@ -1,5 +1,6 @@
 defmodule Thrift.Generator.TestDataGenerator do
   alias __MODULE__, as: TestDataGenerator
+
   alias Thrift.AST.{
     Exception,
     Struct,
@@ -7,6 +8,7 @@ defmodule Thrift.Generator.TestDataGenerator do
     TypeRef,
     Union
   }
+
   alias Thrift.Parser.FileGroup
 
   def generate(label, schema, full_name, struct) do
@@ -17,7 +19,6 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-
   def get_generator(:bool, _) do
     quote do
       bool()
@@ -25,9 +26,17 @@ defmodule Thrift.Generator.TestDataGenerator do
   end
 
   def get_generator(:string, _) do
+    ascii = ?a..?z |> Enum.to_list()
+
     quote do
-      utf8(100)
+      let chars <- list(oneof(unquote(ascii))) do
+        List.to_string(chars)
+      end
     end
+
+    # quote do
+    #   utf8(100)
+    # end
   end
 
   def get_generator(:binary, _) do
@@ -71,6 +80,7 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   def get_generator({:list, t}, file_group) do
     subgen = get_generator(t, file_group)
+
     quote do
       list(unquote(subgen))
     end
@@ -78,6 +88,7 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   def get_generator({:set, t}, file_group) do
     subgen = get_generator({:list, t}, file_group)
+
     quote do
       let x <- unquote(subgen) do
         MapSet.new(x)
@@ -141,11 +152,9 @@ defmodule Thrift.Generator.TestDataGenerator do
   end
 
   def test_data_module_from_data_module(data_module) do
-
     data_module
     |> Module.split()
     |> List.insert_at(0, "TestData")
     |> Module.concat()
   end
-
 end
