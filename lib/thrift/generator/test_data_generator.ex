@@ -26,9 +26,17 @@ defmodule Thrift.Generator.TestDataGenerator do
   end
 
   def get_generator(:string, _) do
+    ascii = ?a..?z |> Enum.to_list()
+
     quote do
-      utf8(100)
+      let chars <- list(oneof(unquote(ascii))) do
+        List.to_string(chars)
+      end
     end
+
+    # quote do
+    #   utf8(100)
+    # end
   end
 
   def get_generator(:binary, _) do
@@ -94,6 +102,16 @@ defmodule Thrift.Generator.TestDataGenerator do
 
     quote do
       map(unquote(key_subgen), unquote(val_subgen))
+    end
+  end
+
+  def get_generator(%TEnum{name: name}, file_group) do
+    dest_module =
+      FileGroup.dest_module(file_group, name)
+      |> test_data_module_from_data_module
+
+    quote do
+      unquote(dest_module).get_generator()
     end
   end
 

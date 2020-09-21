@@ -7,14 +7,27 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
     struct_fields = Enum.map(struct_ast.fields, &gen_struct_field/1)
     draw_fields = Enum.map(struct_ast.fields, &gen_draw(&1, file_group))
 
+    gen =
+      case draw_fields do
+        [] ->
+          quote do
+            %unquote(name){unquote_splicing(struct_fields)}
+          end
+        draw_fields ->
+          quote do
+
+            let [unquote_splicing(draw_fields)] do
+              %unquote(name){unquote_splicing(struct_fields)}
+            end
+          end
+        end
+
     quote do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
         def get_generator() do
-          let [unquote_splicing(draw_fields)] do
-            %unquote(name){unquote_splicing(struct_fields)}
-          end
+          unquote(gen)
         end
 
       end
