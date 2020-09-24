@@ -49,7 +49,7 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Client do
         header = Binary.serialize(:message_begin, {:call, 0, unquote(s_func_name)})
         payload = [header | serialized_args] |> IO.iodata_to_binary()
 
-        {:ok, response} = HTTPoison.post(thrift_url, payload)
+        {:ok, response} = HTTPoison.post(thrift_url, payload, [], hackney: [pool: false])
 
         result =
           with(
