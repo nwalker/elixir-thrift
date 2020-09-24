@@ -90,8 +90,17 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
       end
 
     with_default =
-      quote do
-        Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var)) || unquote(default)
+      case default do
+        nil ->
+          quote do
+            Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var))
+          end
+
+        default ->
+          quote do
+            Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var)) ||
+              unquote(default)
+          end
       end
 
     replace =
