@@ -2,6 +2,7 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
   alias Thrift.Generator.{
     Service
   }
+
   alias Thrift.Parser.FileGroup
   alias Thrift.Protocol.Binary
 
@@ -39,7 +40,10 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
             {:ok, payload, conn} <- Plug.Conn.read_body(conn),
             {:ok, parsed} <- Protocol.Binary.deserialize(:message_begin, payload)
           ) do
+            IO.inspect(parsed)
             handle_thrift_message(conn, parsed, opts)
+          else
+            {:error, _} -> send_resp(conn, 500, "bad thrift")
           end
         end
 
@@ -75,14 +79,15 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
           opts
         end
 
-        unquote_splicing(Enum.map(service_ast.functions, &generate_thrift_handle(service_module, file_group, &1)))
+        unquote_splicing(
+          Enum.map(service_ast.functions, &generate_thrift_handle(service_module, file_group, &1))
+        )
 
         match _ do
           send_resp(conn, 404, "Ohh")
         end
 
         unquote_splicing(generate_exception_handlers(service_ast, service_module, file_group))
-
       end
     end
   end
@@ -146,41 +151,49 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
               _rest
             } <-
               unquote(args_module).BinaryProtocol.deserialize(body),
-            {:ok, result} <- apply(
-              handler_module,
-              unquote(handle),
-              [unquote_splicing(handler_args)]
-            ),
+            {:ok, result} <-
+              apply(
+                handler_module,
+                unquote(handle),
+                [unquote_splicing(handler_args)]
+              ),
             response = %unquote(response_module){success: result}
           ) do
             unquote(response_module).BinaryProtocol.serialize(response)
           else
-            :error -> :error
-            {:exception, exc} -> handle_exc(exc, unquote(response_module))
-            # unquote_splicing(exceptions_clauses)
+            :error ->
+              :error
+
+            {:exception, exc} ->
+              handle_exc(exc, unquote(response_module))
+              # unquote_splicing(exceptions_clauses)
           end
 
         case encoded_response do
-          :error -> send_resp(conn, 500, "LOL")
+          :error ->
+            send_resp(conn, 500, "LOL")
+
           encoded_response ->
             encoded_response = IO.iodata_to_binary([unquote(response_header) | encoded_response])
             send_resp(conn, 200, encoded_response)
         end
-
       end
     end
   end
 
   def generate_exception_handlers(service_ast, service_module, file_group) do
-
-    unknown_exception_handler = quote do
-      defp handle_exc(_, _) do
-        :error
+    unknown_exception_handler =
+      quote do
+        defp handle_exc(_, _) do
+          :error
+        end
       end
-    end
 
-    for {_fname, function_ast} <- service_ast.functions, exception_ast <- function_ast.exceptions do
-      response_module = Module.concat(service_module, Service.module_name(function_ast, :response))
+    for {_fname, function_ast} <- service_ast.functions,
+        exception_ast <- function_ast.exceptions do
+      response_module =
+        Module.concat(service_module, Service.module_name(function_ast, :response))
+
       generate_exception_handler(response_module, exception_ast, file_group)
     end ++ [unknown_exception_handler]
   end
@@ -196,6 +209,5 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
         unquote(response_module).BinaryProtocol.serialize(response)
       end
     end
-
   end
 end

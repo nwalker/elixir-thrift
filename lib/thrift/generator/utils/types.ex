@@ -1,5 +1,6 @@
 defmodule Thrift.Generator.Utils.Types do
   require Logger
+
   alias Thrift.AST.{
     Exception,
     Struct,
@@ -7,6 +8,7 @@ defmodule Thrift.Generator.Utils.Types do
     TypeRef,
     Union
   }
+
   alias Thrift.Parser.FileGroup
 
   def typespec(:void, _), do: quote(do: nil)
@@ -85,5 +87,4 @@ defmodule Thrift.Generator.Utils.Types do
       any()
     end
   end
-
 end

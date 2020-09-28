@@ -33,10 +33,6 @@ defmodule Thrift.Generator.TestDataGenerator do
         List.to_string(chars)
       end
     end
-
-    # quote do
-    #   utf8(100)
-    # end
   end
 
   def get_generator(:binary, _) do
@@ -156,5 +152,29 @@ defmodule Thrift.Generator.TestDataGenerator do
     |> Module.split()
     |> List.insert_at(0, "TestData")
     |> Module.concat()
+  end
+
+  def apply_defaults(struct_) when is_struct(struct_) do
+    module_name =
+      struct_.__struct__
+      |> test_data_module_from_data_module()
+
+    apply(module_name, :apply_defaults, [struct_])
+  end
+
+  def apply_defaults(some_list) when is_list(some_list) do
+    Enum.map(some_list, &apply_defaults/1)
+  end
+
+  def apply_defaults(some_map) when is_map(some_map) do
+    Map.new(some_map, fn {k, v} -> {k, apply_defaults(v)} end)
+  end
+
+  def apply_defaults(%MapSet{} = some_set) do
+    MapSet.new(some_set, &apply_defaults/1)
+  end
+
+  def apply_defaults(anything_else) do
+    anything_else
   end
 end
