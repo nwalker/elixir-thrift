@@ -13,6 +13,7 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   def generate(label, schema, full_name, struct) do
     case label do
+      :typedef -> TestDataGenerator.Typedef.generate(schema, full_name, struct)
       :union -> TestDataGenerator.Union.generate(schema, full_name, struct)
       :enum -> TestDataGenerator.Enum.generate(schema, full_name, struct)
       _ -> TestDataGenerator.Struct.generate(schema, full_name, struct)
@@ -107,7 +108,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
@@ -123,7 +124,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
@@ -133,7 +134,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
@@ -143,15 +144,16 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
   def test_data_module_from_data_module(data_module) do
-    data_module
-    |> Module.split()
-    |> List.insert_at(0, "TestData")
-    |> Module.concat()
+    # data_module
+    # |> Module.split()
+    # |> List.insert_at(0, "TestData")
+    # |> Module.concat()
+    Module.concat(TestData, data_module)
   end
 
   def apply_defaults(struct_) when is_struct(struct_) do
@@ -176,5 +178,17 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   def apply_defaults(anything_else) do
     anything_else
+  end
+
+  def find_first_realization([], _fns, default) do
+    default
+  end
+
+  def find_first_realization([module | rest], {fname, arity} = func, default) do
+    if function_exported?(module, fname, arity) do
+      Function.capture(module, fname, arity)
+    else
+      find_first_realization(rest, func, default)
+    end
   end
 end

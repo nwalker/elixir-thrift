@@ -10,7 +10,7 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
 
     {fast_access, apply_defaults} =
       struct_ast.fields
-      |> Enum.flat_map(&gen_fast_access_replace/1)
+      |> Enum.map(&gen_fast_access_replace/1)
       |> Enum.unzip()
 
     gen =
@@ -46,11 +46,11 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
-        def get_generator() do
+        def get_generator(context \\ nil) do
           unquote(gen)
         end
 
-        def apply_defaults(struct_) do
+        def apply_defaults(struct_, context \\ nil) do
           unquote(gen_replace)
         end
       end
@@ -93,12 +93,12 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
       case default do
         nil ->
           quote do
-            Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var))
+            Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var), context)
           end
 
         default ->
           quote do
-            Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var)) ||
+            Thrift.Generator.TestDataGenerator.apply_defaults(unquote(field_var), context) ||
               unquote(default)
           end
       end
@@ -108,6 +108,26 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
         unquote({field_ast.name, with_default})
       end
 
-    [{access, replace}]
+    {access, replace}
+  end
+
+  def gen_apply_defaults(struct_ast, name) do
+    {fast_access, apply_defaults} =
+      struct_ast.fields
+      |> Enum.map(&gen_fast_access_replace/1)
+      |> Enum.unzip()
+
+    case fast_access do
+      [] ->
+        quote do
+          unquote(Macro.var(:struct_, nil))
+        end
+
+      _otherwise ->
+        quote do
+          %unquote(name){unquote_splicing(fast_access)} = struct_
+          %{struct_ | unquote_splicing(apply_defaults)}
+        end
+    end
   end
 end

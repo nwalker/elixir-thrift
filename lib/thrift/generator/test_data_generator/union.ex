@@ -11,7 +11,7 @@ defmodule Thrift.Generator.TestDataGenerator.Union do
 
     {fast_access, apply_defaults} =
       struct_ast.fields
-      |> Enum.flat_map(&StructGenerator.gen_fast_access_replace/1)
+      |> Enum.map(&StructGenerator.gen_fast_access_replace/1)
       |> Enum.unzip()
 
     gen_replace =
@@ -32,13 +32,13 @@ defmodule Thrift.Generator.TestDataGenerator.Union do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
-        def get_generator() do
+        def get_generator(context \\ nil) do
           unquote_splicing(subgens)
 
           oneof([unquote_splicing(fields)])
         end
 
-        def apply_defaults(struct_) do
+        def apply_defaults(struct_, context \\ nil) do
           unquote(gen_replace)
         end
       end
