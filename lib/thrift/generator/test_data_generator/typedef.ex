@@ -1,13 +1,14 @@
 defmodule Thrift.Generator.TestDataGenerator.Typedef do
   alias Thrift.Generator.TestDataGenerator
 
-  def generate(schema, name, type) do
+  def generate(schema, name, typedef_ast) do
     file_group = schema.file_group
     test_data_module_name = TestDataGenerator.test_data_module_from_data_module(name)
 
     quote do
       defmodule unquote(test_data_module_name) do
         use PropCheck
+        alias Thrift.Generator.TestDataGenerator
 
         def get_generator(context) when is_list(context) do
           ctx = Enum.map(context, &handler_module_from_context/1)
@@ -39,7 +40,7 @@ defmodule Thrift.Generator.TestDataGenerator.Typedef do
 
           f =
             TestDataGenerator.find_first_realization(
-              context,
+              ctx,
               {:apply_defaults, 2},
               &default_apply_defaults/2
             )
@@ -48,10 +49,11 @@ defmodule Thrift.Generator.TestDataGenerator.Typedef do
         end
 
         def get_default_generator(context) do
-          unquote(TestDataGenerator.get_generator(type, file_group))
+          unquote(TestDataGenerator.get_generator(typedef_ast.type, file_group))
         end
 
         def default_apply_defaults(example, context) do
+          TestDataGenerator.apply_defaults(example, context)
         end
 
         def handler_module_from_context(context) do
