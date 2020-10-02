@@ -172,6 +172,9 @@ defmodule Thrift.Generator.TestDataGenerator do
     Module.concat(TestData, data_module)
   end
 
+  def apply_defaults(struct_) do
+    apply_defaults(struct_, nil)
+  end
   def apply_defaults(struct_, context) when is_struct(struct_) do
     module_name =
       struct_.__struct__
