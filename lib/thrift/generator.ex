@@ -87,10 +87,7 @@ defmodule Thrift.Generator do
   defp write_schema_to_file(module_groups, outputs) do
     module_groups
     |> Enum.zip(outputs)
-    # |> IO.inspect(label: "zip res")
     |> Enum.map(&perform_write/1)
-
-    # |> IO.inspect(label: "after")
   end
 
   defp perform_write({modules, output}) do
@@ -165,6 +162,7 @@ defmodule Thrift.Generator do
     endless_label = fn label -> Stream.repeatedly(fn -> label end) end
     zip_with_label = fn label, stream -> Stream.zip(endless_label.(label), stream) end
 
+    typedefs_stream = zip_with_label.(:typedef, schema.typedefs)
     structs_stream = zip_with_label.(:struct, schema.structs)
     exceptions_stream = zip_with_label.(:exception, schema.exceptions)
     unions_stream = zip_with_label.(:union, schema.unions)
@@ -172,23 +170,45 @@ defmodule Thrift.Generator do
 
     all_streams =
       Stream.concat([
+        typedefs_stream,
         structs_stream,
         exceptions_stream,
         unions_stream,
         enums_stream
       ])
 
-    for {label, {_, struct}} <- all_streams do
-      full_name = FileGroup.dest_module(schema.file_group, struct)
+    for {label, {key, struct}} <- all_streams do
+      full_name =
+        case label do
+          :typedef ->
+            thrift_module = Atom.to_string(schema.module)
+            typedef = key |> Atom.to_string() |> String.capitalize()
+            name = "#{thrift_module}.#{typedef}" |> String.to_atom()
+
+            # typedef_name =
+            #   Atom.to_string(schema.module) <>
+            #     "." <> (key |> Atom.to_string() |> String.capitalize())
+
+            # IO.inspect(schema, limit: 10, label: "schema")
+
+            # IO.inspect(ss)
+            FileGroup.dest_module(schema.file_group, name)
+
+          # |> IO.inspect(label: "full_name")
+
+          _otherwise ->
+            FileGroup.dest_module(schema.file_group, struct)
+        end
+
+      # if label == :typedef do
+      #   IO.inspect(ss)
+      # end
+      # full_name = FileGroup.dest_module(schema.file_group, struct)
+      # |> IO.inspect()
       full_test_data_name = TestDataGenerator.test_data_module_from_data_module(full_name)
+
       {full_test_data_name, TestDataGenerator.generate(label, schema, full_name, struct)}
     end
-
-    # for {_, struct} <- schema.structs do
-    #   full_name = FileGroup.dest_module(schema.file_group, struct)
-    #   full_test_data_name = TestDataGenerator.test_data_module_from_data_module(full_name)
-    #   {full_test_data_name, TestDataGenerator.generate(:struct, schema, full_name, struct)}
-    # end
   end
 
   defp generate_enum_modules(schema) do

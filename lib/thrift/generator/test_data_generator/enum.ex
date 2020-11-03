@@ -6,14 +6,14 @@ defmodule Thrift.Generator.TestDataGenerator.Enum do
     test_data_module_name = TestDataGenerator.test_data_module_from_data_module(name)
     # enums = Enum.map(enum_ast.values, fn {vname, _} -> to_name(vname) end)
     enums = Enum.map(enum_ast.values, fn {_, val} -> val end)
+
     quote do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
-        def get_generator() do
+        def get_generator(context \\ nil) do
           oneof(unquote(enums))
         end
-
       end
     end
   end

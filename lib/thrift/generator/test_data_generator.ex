@@ -6,6 +6,7 @@ defmodule Thrift.Generator.TestDataGenerator do
     Struct,
     TEnum,
     TypeRef,
+    Typedef,
     Union
   }
 
@@ -13,6 +14,7 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   def generate(label, schema, full_name, struct) do
     case label do
+      :typedef -> TestDataGenerator.Typedef.generate(schema, full_name, struct)
       :union -> TestDataGenerator.Union.generate(schema, full_name, struct)
       :enum -> TestDataGenerator.Enum.generate(schema, full_name, struct)
       _ -> TestDataGenerator.Struct.generate(schema, full_name, struct)
@@ -107,14 +109,23 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
-  def get_generator(%TypeRef{} = ref, file_group) do
-    file_group
-    |> FileGroup.resolve(ref)
-    |> get_generator(file_group)
+  def get_generator(
+        %TypeRef{referenced_type: type_name},
+        %FileGroup{resolutions: resolutions} = file_group
+      ) do
+    case resolutions[type_name] do
+      %Typedef{} = td ->
+        get_generator(td, file_group)
+
+      other_type ->
+        file_group
+        |> FileGroup.resolve(other_type)
+        |> get_generator(file_group)
+    end
   end
 
   def get_generator(%Union{name: name}, file_group) do
@@ -123,7 +134,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
@@ -133,7 +144,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
     end
   end
 
@@ -143,38 +154,62 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     quote do
-      unquote(dest_module).get_generator()
+      unquote(dest_module).get_generator(context)
+    end
+  end
+
+  def get_generator(%Typedef{name: name}, file_group) do
+    dest_module =
+      FileGroup.dest_module(file_group, name)
+      |> test_data_module_from_data_module
+
+    quote do
+      unquote(dest_module).get_generator(context)
     end
   end
 
   def test_data_module_from_data_module(data_module) do
-    data_module
-    |> Module.split()
-    |> List.insert_at(0, "TestData")
-    |> Module.concat()
+    Module.concat(TestData, data_module)
   end
 
-  def apply_defaults(struct_) when is_struct(struct_) do
+  def apply_defaults(struct_) do
+    apply_defaults(struct_, nil)
+  end
+  def apply_defaults(struct_, context) when is_struct(struct_) do
     module_name =
       struct_.__struct__
       |> test_data_module_from_data_module()
 
-    apply(module_name, :apply_defaults, [struct_])
+    apply(module_name, :apply_defaults, [struct_, context])
   end
 
-  def apply_defaults(some_list) when is_list(some_list) do
-    Enum.map(some_list, &apply_defaults/1)
+  def apply_defaults(some_list, context) when is_list(some_list) do
+    Enum.map(some_list, &apply_defaults(&1, context))
   end
 
-  def apply_defaults(some_map) when is_map(some_map) do
-    Map.new(some_map, fn {k, v} -> {k, apply_defaults(v)} end)
+  def apply_defaults(some_map, context) when is_map(some_map) do
+    Map.new(some_map, fn {k, v} -> {k, apply_defaults(v, context)} end)
   end
 
-  def apply_defaults(%MapSet{} = some_set) do
-    MapSet.new(some_set, &apply_defaults/1)
+  def apply_defaults(%MapSet{} = some_set, context) do
+    MapSet.new(some_set, &apply_defaults(&1, context))
   end
 
-  def apply_defaults(anything_else) do
+  def apply_defaults(anything_else, _context) do
     anything_else
+  end
+
+  def find_first_realization([], _fns, default) do
+    default
+  end
+
+  def find_first_realization([module | rest], {fname, arity} = func, default) do
+    Code.ensure_loaded(module)
+
+    if function_exported?(module, fname, arity) do
+      Function.capture(module, fname, arity)
+    else
+      find_first_realization(rest, func, default)
+    end
   end
 end

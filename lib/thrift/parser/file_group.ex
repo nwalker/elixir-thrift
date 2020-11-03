@@ -17,6 +17,7 @@ defmodule Thrift.Parser.FileGroup do
     Struct,
     TEnum,
     TypeRef,
+    Typedef,
     Union,
     ValueRef
   }
@@ -125,6 +126,10 @@ defmodule Thrift.Parser.FileGroup do
     resolve(group, resolutions[type_name])
   end
 
+  def resolve(%FileGroup{} = group, %Typedef{type: type}) do
+    resolve(group, type)
+  end
+
   def resolve(%FileGroup{resolutions: resolutions} = group, %ValueRef{
         referenced_value: value_name
       }) do
@@ -186,6 +191,7 @@ defmodule Thrift.Parser.FileGroup do
     # the same spellings but different cases.
     schema = file_group.schemas[base]
     IO.puts("file_group flatten")
+
     symbols =
       [
         Enum.map(schema.enums, fn {_, s} -> s.name end),
