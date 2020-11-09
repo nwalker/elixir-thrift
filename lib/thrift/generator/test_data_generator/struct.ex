@@ -64,7 +64,7 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
   end
 
   def gen_draw(field_ast, file_group) do
-    generator = TestDataGenerator.get_generator(field_ast.type, file_group)
+    generator = TestDataGenerator.get_generator(field_ast.type, file_group, field_ast.annotations)
 
     generator =
       if field_ast.required do

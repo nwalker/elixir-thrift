@@ -21,13 +21,14 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-  def get_generator(:bool, _) do
+  def get_generator(type, file_group, annotations \\ %{})
+  def get_generator(:bool, _, _) do
     quote do
       bool()
     end
   end
 
-  def get_generator(:string, _) do
+  def get_generator(:string, _, _) do
     ascii = ?a..?z |> Enum.to_list()
 
     quote do
@@ -37,55 +38,63 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-  def get_generator(:binary, _) do
+  def get_generator(:binary, _, _) do
     quote do
       binary(100)
     end
   end
 
-  def get_generator(:i8, _) do
+  def get_generator(:i8, _, annotations) do
+    min = refinement_from_annotations(annotations, :min, &parse_integer/1, -128)
+    max = refinement_from_annotations(annotations, :max, &parse_integer/1, 127)
+
     quote do
-      integer(-128, 127)
+      integer(unquote(min), unquote(max))
     end
   end
 
-  def get_generator(:i16, _) do
+  def get_generator(:i16, _, annotations) do
+    min = refinement_from_annotations(annotations, :min, &parse_integer/1, -32_768)
+    max = refinement_from_annotations(annotations, :max, &parse_integer/1, 32_767)
     quote do
-      integer(-32_768, 32_767)
+      integer(unquote(min), unquote(max))
     end
   end
 
-  def get_generator(:i32, _) do
+  def get_generator(:i32, _, annotations) do
+    min = refinement_from_annotations(annotations, :min, &parse_integer/1, -2_147_483_648)
+    max = refinement_from_annotations(annotations, :max, &parse_integer/1, 2_147_483_647)
     quote do
-      integer(-2_147_483_648, 2_147_483_647)
+      integer(unquote(min), unquote(max))
     end
   end
 
-  def get_generator(:i64, _) do
+  def get_generator(:i64, _, annotations) do
+    min = refinement_from_annotations(annotations, :min, &parse_integer/1, -9_223_372_036_854_775_808)
+    max = refinement_from_annotations(annotations, :max, &parse_integer/1, 9_223_372_036_854_775_807)
     quote do
-      integer(
-        -9_223_372_036_854_775_808,
-        9_223_372_036_854_775_807
-      )
+      integer(unquote(min), unquote(max))
     end
   end
 
-  def get_generator(:double, _) do
+  def get_generator(:double, _, annotations) do
+    min = refinement_from_annotations(annotations, :min, &parse_float/1, :inf)
+    max = refinement_from_annotations(annotations, :max, &parse_float/1, :inf)
     quote do
-      float()
+      float(unquote(min), unquote(max))
     end
   end
 
-  def get_generator({:list, t}, file_group) do
-    subgen = get_generator(t, file_group)
+  def get_generator({:list, t}, file_group, annotations) do
+    subgen = get_generator(t, file_group, annotations)
 
     quote do
       list(unquote(subgen))
     end
   end
 
-  def get_generator({:set, t}, file_group) do
-    subgen = get_generator({:list, t}, file_group)
+  def get_generator({:set, t}, file_group, annotations) do
+    subgen = get_generator({:list, t}, file_group, annotations)
 
     quote do
       let set <- unquote(subgen) do
@@ -94,16 +103,34 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-  def get_generator({:map, {k, v}}, file_group) do
-    key_subgen = get_generator(k, file_group)
-    val_subgen = get_generator(v, file_group)
+  def get_generator({:map, {k, v}}, file_group, annotations) do
+
+    separate =
+      fn {k, v} ->
+        [type, key] =
+          k
+          |> Atom.to_string()
+          |> String.split("_", parts: 2)
+        {type, {String.to_atom(key), v}}
+      end
+
+    separated_annotations =
+      annotations
+      |> Enum.map(separate)
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 2))
+
+    key_annotations = Map.new(separated_annotations[:k])
+    val_annotations = Map.new(separated_annotations[:v])
+
+    key_subgen = get_generator(k, file_group, key_annotations)
+    val_subgen = get_generator(v, file_group, val_annotations)
 
     quote do
       map(unquote(key_subgen), unquote(val_subgen))
     end
   end
 
-  def get_generator(%TEnum{name: name}, file_group) do
+  def get_generator(%TEnum{name: name}, file_group, _annotations) do
     dest_module =
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
@@ -115,20 +142,21 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   def get_generator(
         %TypeRef{referenced_type: type_name},
-        %FileGroup{resolutions: resolutions} = file_group
+        %FileGroup{resolutions: resolutions} = file_group,
+        annotations
       ) do
     case resolutions[type_name] do
       %Typedef{} = td ->
-        get_generator(td, file_group)
+        get_generator(td, file_group, annotations)
 
       other_type ->
         file_group
         |> FileGroup.resolve(other_type)
-        |> get_generator(file_group)
+        |> get_generator(file_group, annotations)
     end
   end
 
-  def get_generator(%Union{name: name}, file_group) do
+  def get_generator(%Union{name: name}, file_group, annotations) do
     dest_module =
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
@@ -138,7 +166,7 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-  def get_generator(%Exception{name: name}, file_group) do
+  def get_generator(%Exception{name: name}, file_group, annotations) do
     dest_module =
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
@@ -148,7 +176,7 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-  def get_generator(%Struct{name: name}, file_group) do
+  def get_generator(%Struct{name: name}, file_group, annotations) do
     dest_module =
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
@@ -158,7 +186,7 @@ defmodule Thrift.Generator.TestDataGenerator do
     end
   end
 
-  def get_generator(%Typedef{name: name}, file_group) do
+  def get_generator(%Typedef{name: name}, file_group, annotations) do
     dest_module =
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
@@ -212,4 +240,27 @@ defmodule Thrift.Generator.TestDataGenerator do
       find_first_realization(rest, func, default)
     end
   end
+
+  defp refinement_from_annotations(annotations, field, parse_fun, default) do
+    annotations
+      |> Map.get(field)
+      |> case do
+        nil -> default
+        "^" <> v ->
+          var_name = v |> String.to_atom() |> Macro.var(nil)
+          quote do
+            ^unquote(var_name)
+          end
+        v -> parse_fun.(v)
+      end
+  end
+
+  defp parse_integer(str) do
+    str |> Integer.parse() |> elem(0)
+  end
+
+  defp parse_float(str) do
+    str |> Float.parse() |> elem(0)
+  end
+
 end
