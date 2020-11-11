@@ -46,7 +46,7 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
-        def get_generator(context \\ nil) do
+        def get_generator(context \\ nil, props \\ []) do
           unquote(gen)
         end
 
@@ -64,6 +64,7 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
   end
 
   def gen_draw(field_ast, file_group) do
+    # IO.inspect(field_ast.annotations, label: "anno")
     generator = TestDataGenerator.get_generator(field_ast.type, file_group, field_ast.annotations)
 
     generator =

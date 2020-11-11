@@ -10,25 +10,27 @@ defmodule Thrift.Generator.TestDataGenerator.Typedef do
         use PropCheck
         alias Thrift.Generator.TestDataGenerator
 
-        def get_generator(context) when is_list(context) do
+        def get_generator(context, props \\ [])
+
+        def get_generator(context, props) when is_list(context) do
           ctx = Enum.map(context, &handler_module_from_context/1)
 
           f =
             TestDataGenerator.find_first_realization(
               ctx,
-              {:get_generator, 1},
-              &get_default_generator/1
+              {:get_generator, 2},
+              &get_default_generator/2
             )
 
-          f.(context)
+          f.(context, props)
         end
 
-        def get_generator(nil) do
-          get_generator([])
+        def get_generator(nil, props) do
+          get_generator([], props)
         end
 
-        def get_generator(context) do
-          get_generator([context])
+        def get_generator(context, props) do
+          get_generator([context], props)
         end
 
         def apply_defaults(example, nil) do
@@ -48,8 +50,8 @@ defmodule Thrift.Generator.TestDataGenerator.Typedef do
           f.(example, context)
         end
 
-        def get_default_generator(context) do
-          unquote(TestDataGenerator.get_generator(typedef_ast.type, file_group))
+        def get_default_generator(context, props) do
+          unquote(TestDataGenerator.get_generator(typedef_ast.type, file_group, typedef_ast.annotations))
         end
 
         def default_apply_defaults(example, context) do

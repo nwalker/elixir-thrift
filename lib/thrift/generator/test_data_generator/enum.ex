@@ -11,7 +11,7 @@ defmodule Thrift.Generator.TestDataGenerator.Enum do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
-        def get_generator(context \\ nil) do
+        def get_generator(context \\ nil, props \\ []) do
           oneof(unquote(enums))
         end
       end

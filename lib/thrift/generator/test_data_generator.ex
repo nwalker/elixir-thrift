@@ -119,8 +119,8 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> Enum.map(separate)
       |> Enum.group_by(&elem(&1, 0), &elem(&1, 2))
 
-    key_annotations = Map.new(separated_annotations[:k])
-    val_annotations = Map.new(separated_annotations[:v])
+    key_annotations = Map.new(separated_annotations[:k] || %{})
+    val_annotations = Map.new(separated_annotations[:v] || %{})
 
     key_subgen = get_generator(k, file_group, key_annotations)
     val_subgen = get_generator(v, file_group, val_annotations)
@@ -161,8 +161,9 @@ defmodule Thrift.Generator.TestDataGenerator do
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
 
+    props = gen_props(annotations)
     quote do
-      unquote(dest_module).get_generator(context)
+      unquote(dest_module).get_generator(context, unquote(props))
     end
   end
 
@@ -181,8 +182,10 @@ defmodule Thrift.Generator.TestDataGenerator do
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
 
+
+    props = gen_props(annotations)
     quote do
-      unquote(dest_module).get_generator(context)
+      unquote(dest_module).get_generator(context, unquote(props))
     end
   end
 
@@ -191,8 +194,9 @@ defmodule Thrift.Generator.TestDataGenerator do
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
 
+    props = gen_props(annotations)
     quote do
-      unquote(dest_module).get_generator(context)
+      unquote(dest_module).get_generator(context, unquote(props))
     end
   end
 
@@ -246,11 +250,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> Map.get(field)
       |> case do
         nil -> default
-        "^" <> v ->
-          var_name = v |> String.to_atom() |> Macro.var(nil)
-          quote do
-            ^unquote(var_name)
-          end
+        "^" <> v -> annotation_to_pin(v)
         v -> parse_fun.(v)
       end
   end
@@ -261,6 +261,35 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   defp parse_float(str) do
     str |> Float.parse() |> elem(0)
+  end
+
+  defp annotation_to_pin(anno) do
+    var_name =
+      anno
+      |> String.to_atom()
+      |> Macro.var(nil)
+    quote do
+      ^unquote(var_name)
+    end
+  end
+
+  defp gen_props(annotations) do
+    to_prop = fn {k, v} ->
+      v =
+        case v do
+          "^" <> v -> annotation_to_pin(v)
+          v -> v
+        end
+      {k, v}
+    end
+
+    props_from_annotations =
+      annotations
+      |> Enum.map(to_prop)
+
+    quote do
+      [unquote_splicing(props_from_annotations)]
+    end
   end
 
 end

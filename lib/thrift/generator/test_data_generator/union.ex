@@ -32,7 +32,7 @@ defmodule Thrift.Generator.TestDataGenerator.Union do
       defmodule unquote(test_data_module_name) do
         use PropCheck
 
-        def get_generator(context \\ nil) do
+        def get_generator(context \\ nil, props \\ []) do
           unquote_splicing(subgens)
 
           oneof([unquote_splicing(fields)])
@@ -47,7 +47,7 @@ defmodule Thrift.Generator.TestDataGenerator.Union do
 
   def gen_sub_gens(field_ast, file_group, module_name) do
     field_var = Macro.var(field_ast.name, nil)
-    gen = TestDataGenerator.get_generator(field_ast.type, file_group)
+    gen = TestDataGenerator.get_generator(field_ast.type, file_group, field_ast.annotations)
     fill_field = [{field_ast.name, field_var}]
 
     quote do
