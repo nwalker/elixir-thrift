@@ -45,13 +45,31 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
     quote do
       defmodule unquote(test_data_module_name) do
         use PropCheck
+        alias Thrift.Generator.TestDataGenerator
 
-        def get_generator(context \\ nil, props \\ []) do
+        def get_generator(context \\ [], props \\ []) do
+          ctx = Enum.map(context, &handler_module_from_context/1)
+
+          f =
+            TestDataGenerator.find_first_realization(
+              ctx,
+              {:get_generator, 2},
+              &get_default_generator/2
+            )
+
+          f.(context, props)
+        end
+
+        def get_default_generator(context \\ nil, props \\ []) do
           unquote(gen)
         end
 
         def apply_defaults(struct_, context \\ nil) do
           unquote(gen_replace)
+        end
+
+        defp handler_module_from_context(context) do
+          Module.concat(context, unquote(name))
         end
       end
     end
@@ -131,4 +149,5 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
         end
     end
   end
+
 end
