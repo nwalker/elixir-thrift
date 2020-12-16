@@ -82,11 +82,20 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
   end
 
   def gen_draw(field_ast, file_group) do
-    # IO.inspect(field_ast.annotations, label: "anno")
-    generator = TestDataGenerator.get_generator(field_ast.type, file_group, field_ast.annotations)
+    annotations = field_ast.annotations
+    draw_anno = Map.drop(annotations, [:act])
+    generator = TestDataGenerator.get_generator(field_ast.type, file_group, draw_anno)
+
+    declared_required =
+      case field_ast.required do
+        :default -> true
+        otherwise -> otherwise
+      end
+
+    actually_required = Map.get(field_ast.annotations, :act) == "required"
 
     generator =
-      if field_ast.required do
+      if declared_required or actually_required do
         generator
       else
         quote do
@@ -149,5 +158,4 @@ defmodule Thrift.Generator.TestDataGenerator.Struct do
         end
     end
   end
-
 end

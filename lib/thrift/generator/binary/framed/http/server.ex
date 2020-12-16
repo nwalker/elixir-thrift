@@ -40,7 +40,6 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
             {:ok, payload, conn} <- Plug.Conn.read_body(conn),
             {:ok, parsed} <- Protocol.Binary.deserialize(:message_begin, payload)
           ) do
-            IO.inspect(parsed)
             handle_thrift_message(conn, parsed, opts)
           else
             {:error, _} -> send_resp(conn, 500, "bad thrift")

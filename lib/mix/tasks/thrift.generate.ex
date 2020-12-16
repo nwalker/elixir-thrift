@@ -56,13 +56,19 @@ defmodule Mix.Tasks.Thrift.Generate do
     {opts, files} =
       OptionParser.parse!(
         args,
-        switches: [include: :keep, namespace: :string, out: :string, out_test: :string, verbose: :boolean],
+        switches: [
+          include: :keep,
+          namespace: :string,
+          out: :string,
+          out_test: :string,
+          verbose: :boolean
+        ],
         aliases: [I: :include, o: :out, v: :verbose]
       )
 
     config = Keyword.get(Mix.Project.config(), :thrift, [])
     output_path = opts[:out] || Keyword.get(config, :output_path, "lib")
-    output_test_data = opts[:out_test] || Keyword.get(config, :output_test_data, "lib") #|> IO.inspect(label: "test_data")
+    output_test_data = opts[:out_test] || Keyword.get(config, :output_test_data, "lib")
 
     namespace = opts[:namespace] || Keyword.get(config, :namespace)
 
@@ -74,6 +80,7 @@ defmodule Mix.Tasks.Thrift.Generate do
       Keyword.new()
       |> Keyword.put(:include_paths, include_paths)
       |> Keyword.put(:namespace, namespace)
+
     unless Enum.empty?(files) do
       File.mkdir_p!(output_path)
       Enum.each(files, &generate!(&1, output_path, parser_opts, opts))

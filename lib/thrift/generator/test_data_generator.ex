@@ -22,6 +22,7 @@ defmodule Thrift.Generator.TestDataGenerator do
   end
 
   def get_generator(type, file_group, annotations \\ %{})
+
   def get_generator(:bool, _, _) do
     quote do
       bool()
@@ -56,6 +57,7 @@ defmodule Thrift.Generator.TestDataGenerator do
   def get_generator(:i16, _, annotations) do
     min = refinement_from_annotations(annotations, :min, &parse_integer/1, -32_768)
     max = refinement_from_annotations(annotations, :max, &parse_integer/1, 32_767)
+
     quote do
       integer(unquote(min), unquote(max))
     end
@@ -64,14 +66,19 @@ defmodule Thrift.Generator.TestDataGenerator do
   def get_generator(:i32, _, annotations) do
     min = refinement_from_annotations(annotations, :min, &parse_integer/1, -2_147_483_648)
     max = refinement_from_annotations(annotations, :max, &parse_integer/1, 2_147_483_647)
+
     quote do
       integer(unquote(min), unquote(max))
     end
   end
 
   def get_generator(:i64, _, annotations) do
-    min = refinement_from_annotations(annotations, :min, &parse_integer/1, -9_223_372_036_854_775_808)
-    max = refinement_from_annotations(annotations, :max, &parse_integer/1, 9_223_372_036_854_775_807)
+    min =
+      refinement_from_annotations(annotations, :min, &parse_integer/1, -9_223_372_036_854_775_808)
+
+    max =
+      refinement_from_annotations(annotations, :max, &parse_integer/1, 9_223_372_036_854_775_807)
+
     quote do
       integer(unquote(min), unquote(max))
     end
@@ -80,6 +87,7 @@ defmodule Thrift.Generator.TestDataGenerator do
   def get_generator(:double, _, annotations) do
     min = refinement_from_annotations(annotations, :min, &parse_float/1, :inf)
     max = refinement_from_annotations(annotations, :max, &parse_float/1, :inf)
+
     quote do
       float(unquote(min), unquote(max))
     end
@@ -104,15 +112,14 @@ defmodule Thrift.Generator.TestDataGenerator do
   end
 
   def get_generator({:map, {k, v}}, file_group, annotations) do
+    separate = fn {k, v} ->
+      [type, key] =
+        k
+        |> Atom.to_string()
+        |> String.split("_", parts: 2)
 
-    separate =
-      fn {k, v} ->
-        [type, key] =
-          k
-          |> Atom.to_string()
-          |> String.split("_", parts: 2)
-        {type, {String.to_atom(key), v}}
-      end
+      {type, {String.to_atom(key), v}}
+    end
 
     separated_annotations =
       annotations
@@ -162,6 +169,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       |> test_data_module_from_data_module
 
     props = gen_props(annotations)
+
     quote do
       unquote(dest_module).get_generator(context, unquote(props))
     end
@@ -182,19 +190,20 @@ defmodule Thrift.Generator.TestDataGenerator do
       FileGroup.dest_module(file_group, name)
       |> test_data_module_from_data_module
 
-
     props = gen_props(annotations)
+
     quote do
       unquote(dest_module).get_generator(context, unquote(props))
     end
   end
 
-  def get_generator(%Typedef{name: name}, file_group, annotations) do
+  def get_generator(%Typedef{} = typedef, file_group, annotations) do
     dest_module =
-      FileGroup.dest_module(file_group, name)
+      FileGroup.dest_module(file_group, typedef)
       |> test_data_module_from_data_module
 
     props = gen_props(annotations)
+
     quote do
       unquote(dest_module).get_generator(context, unquote(props))
     end
@@ -207,6 +216,7 @@ defmodule Thrift.Generator.TestDataGenerator do
   def apply_defaults(struct_) do
     apply_defaults(struct_, nil)
   end
+
   def apply_defaults(struct_, context) when is_struct(struct_) do
     module_name =
       struct_.__struct__
@@ -247,12 +257,12 @@ defmodule Thrift.Generator.TestDataGenerator do
 
   defp refinement_from_annotations(annotations, field, parse_fun, default) do
     annotations
-      |> Map.get(field)
-      |> case do
-        nil -> default
-        "^" <> v -> annotation_to_pin(v)
-        v -> parse_fun.(v)
-      end
+    |> Map.get(field)
+    |> case do
+      nil -> default
+      "^" <> v -> annotation_to_pin(v)
+      v -> parse_fun.(v)
+    end
   end
 
   defp parse_integer(str) do
@@ -268,6 +278,7 @@ defmodule Thrift.Generator.TestDataGenerator do
       anno
       |> String.to_atom()
       |> Macro.var(nil)
+
     quote do
       ^unquote(var_name)
     end
@@ -280,6 +291,7 @@ defmodule Thrift.Generator.TestDataGenerator do
           "^" <> v -> annotation_to_pin(v)
           v -> v
         end
+
       {k, v}
     end
 
@@ -291,5 +303,4 @@ defmodule Thrift.Generator.TestDataGenerator do
       [unquote_splicing(props_from_annotations)]
     end
   end
-
 end

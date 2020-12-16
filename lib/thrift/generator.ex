@@ -27,8 +27,6 @@ defmodule Thrift.Generator do
       |> generate_schema
       |> hd()
       |> Enum.map(fn {name, _} -> target_path(name) end)
-
-      # |> IO.inspect(label: "target paths")
     end)
   end
 
@@ -43,8 +41,6 @@ defmodule Thrift.Generator do
   end
 
   def generate!(%FileGroup{} = file_group, [_output_dir, _output_test_data] = output) do
-    IO.inspect(file_group.schemas, label: "fg")
-
     Enum.flat_map(file_group.schemas, fn {_, schema} ->
       schema
       |> Map.put(:file_group, file_group)
@@ -67,7 +63,6 @@ defmodule Thrift.Generator do
   def generate_schema(schema) do
     current_module_file_group = FileGroup.set_current_module(schema.file_group, schema.module)
     schema = %Schema{schema | file_group: current_module_file_group}
-    IO.inspect(schema, label: "schema")
 
     modules =
       List.flatten([
@@ -185,26 +180,12 @@ defmodule Thrift.Generator do
             typedef = key |> Atom.to_string() |> String.capitalize()
             name = "#{thrift_module}.#{typedef}" |> String.to_atom()
 
-            # typedef_name =
-            #   Atom.to_string(schema.module) <>
-            #     "." <> (key |> Atom.to_string() |> String.capitalize())
-
-            # IO.inspect(schema, limit: 10, label: "schema")
-
-            # IO.inspect(ss)
             FileGroup.dest_module(schema.file_group, name)
-
-          # |> IO.inspect(label: "full_name")
 
           _otherwise ->
             FileGroup.dest_module(schema.file_group, struct)
         end
 
-      # if label == :typedef do
-      #   IO.inspect(ss)
-      # end
-      # full_name = FileGroup.dest_module(schema.file_group, struct)
-      # |> IO.inspect()
       full_test_data_name = TestDataGenerator.test_data_module_from_data_module(full_name)
 
       {full_test_data_name, TestDataGenerator.generate(label, schema, full_name, struct)}

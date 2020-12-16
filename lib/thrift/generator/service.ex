@@ -12,8 +12,6 @@ defmodule Thrift.Generator.Service do
   @dialyzer [{:nowarn_function, generate: 2}, {:nowarn_function, generate_response_struct: 2}]
 
   def generate(schema, service) do
-    # IO.inspect(schema, label: "SCHEMA")
-    # IO.inspect(service, label: "SERVICE")
     file_group = schema.file_group
     dest_module = FileGroup.dest_module(file_group, service)
 

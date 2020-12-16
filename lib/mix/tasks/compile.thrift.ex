@@ -64,12 +64,13 @@ defmodule Mix.Tasks.Compile.Thrift do
     config = Keyword.get(Mix.Project.config(), :thrift, [])
     input_files = Keyword.get(config, :files, [])
     output_path = Keyword.get(config, :output_path, "lib")
-    output_test_data = Keyword.get(
-      config,
-      :output_test_data,
-      "test/test_data/"
-    )# |> IO.inspect(label: "output test data")
 
+    output_test_data =
+      Keyword.get(
+        config,
+        :output_test_data,
+        "test/test_data/"
+      )
 
     parser_opts =
       config
@@ -127,13 +128,11 @@ defmodule Mix.Tasks.Compile.Thrift do
   @spec extract_targets([FileGroup.t()], {Path.t(), Path.t()}, boolean) :: mappings
   defp extract_targets(groups, {output_path, _}, force) when is_list(groups) do
     for %FileGroup{initial_file: file} = group <- groups do
-      # IO.puts("ololo")
       targets =
         group
-        # |> IO.inspect(label: "group for extract")
         |> Thrift.Generator.targets()
         |> Enum.map(&Path.join(output_path, &1))
-      # IO.puts("keke")
+
       if force || Mix.Utils.stale?([file], targets) do
         {:stale, group, targets}
       else
@@ -149,7 +148,7 @@ defmodule Mix.Tasks.Compile.Thrift do
     verbose = opts[:verbose]
 
     # Load the list of previously-generated files.
-    previous = read_manifest(manifest |> IO.inspect(label: "manifest")) |> IO.inspect(label: "previous")
+    previous = read_manifest(manifest)
 
     # Determine which of our current targets are in need of (re)generation.
     stale = for {:stale, group, targets} <- mappings, do: {group, targets}
@@ -173,15 +172,10 @@ defmodule Mix.Tasks.Compile.Thrift do
       unless Enum.empty?(stale) do
         Mix.Utils.compiling_n(length(stale), :thrift)
 
-        # IO.inspect(stale, lable: "stale")
-
         Enum.each(stale, fn {group, _targets} ->
-          # IO.inspect(output, label: "output")
           Thrift.Generator.generate!(group, output)
-          IO.puts("after gen")
           verbose && Mix.shell().info("Compiled #{group.initial_file}")
         end)
-
       end
 
       # Update and rewrite the manifest.

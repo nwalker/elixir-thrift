@@ -180,6 +180,10 @@ defmodule Thrift.Parser.FileGroup do
     dest_module(file_group, name)
   end
 
+  def dest_module(file_group, %Typedef{name: name}) do
+    dest_module(file_group, name)
+  end
+
   def dest_module(file_group, Constant) do
     # Default to naming the constants module after the namespaced, camelized
     # basename of its file. For foo.thrift, this would be `foo.Foo`.
@@ -223,7 +227,7 @@ defmodule Thrift.Parser.FileGroup do
     struct_name =
       name_parts
       |> Enum.at(1)
-      |> initialcase()
+      |> Macro.camelize()
 
     case file_group.namespaces[module_name] do
       nil ->
