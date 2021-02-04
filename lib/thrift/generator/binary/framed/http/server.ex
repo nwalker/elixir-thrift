@@ -141,6 +141,7 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
       post unquote(func_path) do
         [handler_module] = opts
         body = conn.body_params
+        headers = conn.req_headers
 
         encoded_response =
           with(
@@ -154,7 +155,7 @@ defmodule Thrift.Generator.Binary.Framed.HTTP.Server do
               apply(
                 handler_module,
                 unquote(handle),
-                [unquote_splicing(handler_args)]
+                [unquote_splicing(handler_args), headers]
               ),
             response = %unquote(response_module){success: result}
           ) do
