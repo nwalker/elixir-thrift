@@ -23,8 +23,13 @@ defmodule Thrift.Generator.Service do
         generate_response_struct(schema, function)
       end
 
-    framed_client = Generator.Binary.Framed.Client.generate(service)
-    framed_server = Generator.Binary.Framed.Server.generate(dest_module, service, file_group)
+    # framed_client = Generator.Binary.Framed.Client.generate(service)
+    # framed_server = Generator.Binary.Framed.Server.generate(dest_module, service, file_group)
+
+    generic = Generator.Binary.Generic.generate(dest_module, service, file_group)
+    generic_client = Generator.Binary.Generic.BlockingClient.generate(dest_module, service, file_group)
+    # http_server = Generator.Binary.Framed.HTTP.Server.generate(dest_module, service, file_group)
+    # http_client = Generator.Binary.Framed.HTTP.Client.generate(dest_module, service, file_group)
 
     service_module =
       quote do
@@ -33,9 +38,13 @@ defmodule Thrift.Generator.Service do
           unquote_splicing(arg_structs)
           unquote_splicing(response_structs)
 
-          unquote(framed_client)
+          # unquote(framed_client)
+          # unquote(framed_server)
 
-          unquote(framed_server)
+          unquote(generic)
+          unquote(generic_client)
+          # unquote(http_server)
+          # unquote(http_client)
         end
       end
 
