@@ -61,6 +61,10 @@ defmodule Thrift.Generator.StructGenerator do
         unquote(define_block)
         @type t :: %__MODULE__{}
         def new, do: %__MODULE__{}
+        defdelegate fetch(m, k), to: Map
+        defdelegate get_and_update(m, k, f), to: Map
+        defdelegate pop(m, k), to: Map
+
         unquote_splicing(List.wrap(extra_defs))
 
         defmodule BinaryProtocol do
