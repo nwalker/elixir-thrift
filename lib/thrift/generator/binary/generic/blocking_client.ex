@@ -2,7 +2,7 @@ defmodule Thrift.Generator.Binary.Generic.BlockingClient do
   alias Thrift.Generator.{
     Service
   }
-  alias Thrift.Parser.FileGroup
+  # alias Thrift.Parser.FileGroup
   alias Thrift.Protocol.Binary
 
   def generate(service_module, service, file_group) do
@@ -22,7 +22,7 @@ defmodule Thrift.Generator.Binary.Generic.BlockingClient do
     end
   end
 
-  def generate_method(service_module, {func_name, function_ast}, file_group) do
+  def generate_method(_service_module, {func_name, function_ast}, _file_group) do
 
     # function_name = nil
     function_args = Enum.map(function_ast.params, &Macro.var(&1.name, nil))
@@ -55,13 +55,13 @@ defmodule Thrift.Generator.Binary.Generic.BlockingClient do
           end,
           {:service, reply} <- Binary.deserialize(:message_begin, response.body) |> case do
             {:ok, {:reply, 0, unquote(s_func_name), reply}} -> {:service, reply}
-            {:ok, {:exception, 0, unquote(s_func_name), exception}} -> {:error, {:service, Binary.deserialize(:application_exception, exception)}}
+            {:ok, {:exception, 0, unquote(s_func_name), exception}} -> {:error, {:service, Binary.deserialize(:application_exception, exception)}, response}
           end,
           {:result, result} <- unquote(response_binary_module).deserialize(reply) |> case do
             {%{success: nil} = r, _tail} when map_size(r) > 2 ->
               case Map.from_struct(r) |> Enum.find_value(fn {_, value} -> value end) do
                 nil -> {:result, :ok}
-                other -> {:error, {:exception, other}}
+                other -> {:error, {:exception, other}, response}
               end
             {%{success: res}, _tail} -> {:result, res}
           end
