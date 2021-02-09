@@ -61,9 +61,26 @@ defmodule Thrift.Generator.StructGenerator do
         unquote(define_block)
         @type t :: %__MODULE__{}
         def new, do: %__MODULE__{}
-        defdelegate fetch(m, k), to: Map
-        defdelegate get_and_update(m, k, f), to: Map
-        defdelegate pop(m, k), to: Map
+
+        def fetch(struct, key), do: Map.fetch(struct, key)
+        def get(struct, key, default \\ nil), do: Map.get(struct, key, default)
+
+        def get_and_update(struct, key, fun) when is_function(fun, 1) do
+          current = get(struct, key)
+
+          case fun.(current) do
+            {get, update} -> {get, Map.put(struct, key, update)}
+            :pop -> pop(struct, key)
+            other -> raise "the given function must return a two-element tuple or :pop, got: #{inspect(other)}"
+          end
+        end
+
+        def pop(struct, key) do
+          case fetch(struct, key) do
+            {:ok, old_value} -> {old_value, Map.put(struct, key, nil)}
+            :error -> {nil, struct}
+          end
+        end
 
         unquote_splicing(List.wrap(extra_defs))
 
